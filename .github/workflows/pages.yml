@@ -37,6 +37,7 @@ jobs:
           CDC_NEON_AUTH_URL: https://ep-calm-dawn-b4t6enjm.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth
           CDC_NEON_DATA_API_URL: https://ep-calm-dawn-b4t6enjm.apirest.c-6.us-east-2.aws.neon.tech/neondb/rest/v1
           CDC_MEDIA_WORKER_URL: https://cdc-media.edusentia-enterprise-neon.workers.dev
+          CDC_SEO_SHARE_IMAGE_URL: https://cdc-media.edusentia-enterprise-neon.workers.dev/media/images/settings/seo_share_image/2026/08/b3da4073-2e0e-437e-ae39-f3d35bbdfd40.webp
           CDC_ORGANISATION_LOGO_URL: ""
           CDC_SCHOOL_LOGO_URL: ""
         run: node scripts/build-pages.mjs
@@ -72,6 +73,10 @@ jobs:
               && runtime="$(curl --fail --silent --show-error --location "$RUNTIME_URL")" \
               && health="$(curl --fail --silent --show-error --location "$WORKER_URL/health")"; then
               printf '%s' "$page" | grep -F "Child Development Centre" >/dev/null
+              printf '%s' "$page" | grep -F '<link id="canonicalUrl" rel="canonical" href="https://owusuduahephraim1.github.io/child-development-centre/">' >/dev/null
+              printf '%s' "$page" | grep -F '<meta id="ogUrl" property="og:url" content="https://owusuduahephraim1.github.io/child-development-centre/">' >/dev/null
+              printf '%s' "$page" | grep -F '<meta id="ogImage" property="og:image" content="https://cdc-media.edusentia-enterprise-neon.workers.dev/media/images/settings/seo_share_image/2026/08/b3da4073-2e0e-437e-ae39-f3d35bbdfd40.webp">' >/dev/null
+              printf '%s' "$page" | grep -F '<meta id="twitterImage" name="twitter:image" content="https://cdc-media.edusentia-enterprise-neon.workers.dev/media/images/settings/seo_share_image/2026/08/b3da4073-2e0e-437e-ae39-f3d35bbdfd40.webp">' >/dev/null
               printf '%s' "$runtime" | grep -F "$WORKER_URL" >/dev/null
               printf '%s' "$runtime" | grep -F "ep-calm-dawn-b4t6enjm.neonauth.c-6.us-east-2.aws.neon.tech" >/dev/null
               printf '%s' "$runtime" | grep -F "ep-calm-dawn-b4t6enjm.apirest.c-6.us-east-2.aws.neon.tech" >/dev/null
