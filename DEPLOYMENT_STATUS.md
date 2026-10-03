@@ -12,12 +12,17 @@
 - Neon Data API: enabled
 - GitHub Pages origin is trusted by Neon Auth.
 - GitHub Pages deployment: successful
+- Cloudflare R2 bucket: `cdc-media-production`
+- Cloudflare Worker: `cdc-media`
+- Cloudflare Worker URL: `https://cdc-media.edusentia-enterprise-neon.workers.dev`
 
-This project is isolated from all Edusentia repositories and Neon projects.
+The `workers.dev` account subdomain is inherited from the Cloudflare account. The CDC Worker and R2 bucket are dedicated CDC resources and are not Edusentia resources.
+
+This project is isolated from all Edusentia repositories, Neon projects, databases, R2 buckets, and Workers.
 
 ## Backend restore verification
 
-The production database currently contains:
+The production database contains:
 
 - 31 CDC application tables
 - 48 application triggers
@@ -26,14 +31,22 @@ The production database currently contains:
 
 The corrected newsletter audit functions use `audit_logs.user_id`, and gateway donation verification uses `next_receipt_reference()`.
 
-## Deployment verification
+Anonymous RLS smoke tests confirm that public content is readable while private enquiry data remains inaccessible.
 
-GitHub Pages is enabled with **GitHub Actions** as the source. The deployment workflow completed successfully after Pages activation.
+## Media migration verification
+
+- 14 legacy CDC media objects were copied to `cdc-media-production`.
+- Every migrated object was downloaded through the new CDC Worker and compared byte-for-byte with its legacy source.
+- 16 database media URL references were rewritten to the new Worker; two gallery covers reuse migrated gallery objects.
+- The verified database scan reports zero references to `nis-cdc-media-upload.nduah385.workers.dev`.
+- The media Worker health endpoint reports image, video, and multipart upload capabilities as available.
+
+## Deployment
+
+GitHub Pages uses **GitHub Actions** as its deployment source.
 
 Live site:
 
 `https://owusuduahephraim1.github.io/child-development-centre/`
 
-## Remaining infrastructure work
-
-The dedicated Cloudflare R2 media layer and Worker still need to be provisioned and connected. Existing legacy media URLs remain intentionally unchanged until the corresponding binary objects are copied and verified in the new CDC R2 bucket.
+Cloudflare provisioning and media-migration workflows are manual-only after successful setup.
