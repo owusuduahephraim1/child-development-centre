@@ -29,9 +29,6 @@ jobs:
       - name: Install Wrangler
         run: npm install --global wrangler@latest
 
-      - name: Verify Cloudflare account
-        run: wrangler whoami
-
       - name: Create CDC R2 bucket if missing
         shell: bash
         run: |
