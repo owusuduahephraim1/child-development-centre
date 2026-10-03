@@ -85,6 +85,7 @@ jobs:
           assert(await page.locator('#videoGrid .video-card').count() >= 1, 'Published videos did not render.');
           assert(await page.locator('#videos').isVisible(), 'Public video section remained hidden.');
 
+          await page.locator('#gallery').scrollIntoViewIfNeeded();
           await page.waitForFunction(() => {
             const img = document.querySelector('#galleryGrid img');
             return !!img && img.complete && img.naturalWidth > 0;
