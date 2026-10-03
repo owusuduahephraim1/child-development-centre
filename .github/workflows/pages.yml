@@ -66,10 +66,14 @@ jobs:
           set -euo pipefail
           SITE_URL="https://owusuduahephraim1.github.io/child-development-centre/"
           RUNTIME_URL="${SITE_URL}assets/runtime-config.js"
+          ADMIN_URL="${SITE_URL}admin/"
+          ADMIN_JS_URL="${SITE_URL}assets/admin-login.v1.0.0.js"
           WORKER_URL="https://cdc-media.edusentia-enterprise-neon.workers.dev"
 
           for attempt in 1 2 3 4 5; do
             if page="$(curl --fail --silent --show-error --location "$SITE_URL")" \
+              && admin="$(curl --fail --silent --show-error --location "$ADMIN_URL")" \
+              && admin_js="$(curl --fail --silent --show-error --location "$ADMIN_JS_URL")" \
               && runtime="$(curl --fail --silent --show-error --location "$RUNTIME_URL")" \
               && health="$(curl --fail --silent --show-error --location "$WORKER_URL/health")"; then
               printf '%s' "$page" | grep -F "Child Development Centre" >/dev/null
@@ -77,6 +81,11 @@ jobs:
               printf '%s' "$page" | grep -F '<meta id="ogUrl" property="og:url" content="https://owusuduahephraim1.github.io/child-development-centre/">' >/dev/null
               printf '%s' "$page" | grep -F '<meta id="ogImage" property="og:image" content="https://cdc-media.edusentia-enterprise-neon.workers.dev/media/images/settings/seo_share_image/2026/08/b3da4073-2e0e-437e-ae39-f3d35bbdfd40.webp">' >/dev/null
               printf '%s' "$page" | grep -F '<meta id="twitterImage" name="twitter:image" content="https://cdc-media.edusentia-enterprise-neon.workers.dev/media/images/settings/seo_share_image/2026/08/b3da4073-2e0e-437e-ae39-f3d35bbdfd40.webp">' >/dev/null
+              printf '%s' "$admin" | grep -F 'Secure Administration Portal' >/dev/null
+              printf '%s' "$admin" | grep -F 'Administrator Sign In' >/dev/null
+              printf '%s' "$admin" | grep -F 'name="robots" content="noindex,nofollow,noarchive"' >/dev/null
+              printf '%s' "$admin_js" | grep -F "from('admin_users')" >/dev/null
+              printf '%s' "$admin_js" | grep -F "resetPasswordForEmail" >/dev/null
               printf '%s' "$runtime" | grep -F "$WORKER_URL" >/dev/null
               printf '%s' "$runtime" | grep -F "ep-calm-dawn-b4t6enjm.neonauth.c-6.us-east-2.aws.neon.tech" >/dev/null
               printf '%s' "$runtime" | grep -F "ep-calm-dawn-b4t6enjm.apirest.c-6.us-east-2.aws.neon.tech" >/dev/null
