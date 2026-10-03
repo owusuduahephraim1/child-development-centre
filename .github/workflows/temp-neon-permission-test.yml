@@ -1,0 +1,46 @@
+name: Temporary Neon Permission Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/temp-neon-permission-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      API: https://ep-square-frost-b403ctr0.apirest.c-6.us-east-2.aws.neon.tech/neondb/rest/v1
+    steps:
+      - name: Verify public read and RPC permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          public="$(curl --fail --silent --show-error "$API/website_settings?select=key,value&key=eq.organisation_name")"
+          printf '%s' "$public" | grep -F 'Child Development Centre' >/dev/null
+
+          newsletter="$(curl --fail --silent --show-error             -H 'content-type: application/json'             -d '{"p_name":"Migration Test","p_email":"migration-test@example.invalid"}'             "$API/rpc/subscribe_newsletter_v2")"
+          printf '%s' "$newsletter" | grep -F '"ok": true' >/dev/null || printf '%s' "$newsletter" | grep -F '"ok":true' >/dev/null
+
+          check_blocked() {
+            local rpc="$1"
+            local body="$2"
+            local code
+            code="$(curl --silent --show-error -o /tmp/blocked.json -w '%{http_code}'               -H 'content-type: application/json'               -d "$body"               "$API/rpc/$rpc")"
+            if [ "$code" -lt 400 ]; then
+              echo "Sensitive RPC unexpectedly callable: $rpc"
+              cat /tmp/blocked.json
+              exit 1
+            fi
+            echo "Blocked as expected: $rpc ($code)"
+          }
+
+          check_blocked "admin_setup_available" '{}'
+          check_blocked "next_receipt_reference" '{}'
+          check_blocked "record_gateway_verified_donation" '{"p_intent_id":"00000000-0000-0000-0000-000000000000","p_provider":"test","p_provider_reference":"test","p_received_at":"2026-10-03T00:00:00Z","p_note":null}'
+
+          echo "Temporary Neon permission hardening verified through the Data API."
