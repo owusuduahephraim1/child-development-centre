@@ -75,8 +75,12 @@ jobs:
               echo "$response"
               RANGE_URL="$WORKER_URL/media/videos/2026/08/102f6ab9-463c-4d52-8baa-1be15f267dce.mp4"
               range_code="$(curl --silent --show-error --location -D /tmp/range.headers -o /tmp/range.bin -w '%{http_code}' -H 'Range: bytes=0-1023' "$RANGE_URL")"
+              range_bytes="$(wc -c < /tmp/range.bin | tr -d ' ')"
+              echo "Range HTTP status: $range_code"
+              echo "Range body bytes: $range_bytes"
+              cat /tmp/range.headers
               test "$range_code" = "206"
-              test "$(wc -c < /tmp/range.bin | tr -d ' ')" = "1024"
+              test "$range_bytes" = "1024"
               grep -qi '^content-range: bytes 0-1023/' /tmp/range.headers
               grep -qi '^accept-ranges: bytes' /tmp/range.headers
               echo "CDC Cloudflare media infrastructure provisioned."
