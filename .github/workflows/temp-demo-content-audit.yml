@@ -9,6 +9,8 @@ on:
 permissions:
   contents: read
 
+# rerun after safeUrl fix
+
 jobs:
   public-demo-audit:
     runs-on: ubuntu-latest
