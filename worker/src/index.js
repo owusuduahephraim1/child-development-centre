@@ -72,19 +72,35 @@ function bearer(request) {
   return m ? m[1].trim() : '';
 }
 
+function jwtSubject(token) {
+  try {
+    const parts = String(token || '').split('.');
+    if (parts.length < 2) return '';
+    const raw = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = raw + '='.repeat((4 - (raw.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded));
+    const subject = String(payload?.sub || payload?.user_id || '').trim();
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(subject) ? subject : '';
+  } catch {
+    return '';
+  }
+}
+
 async function requireAdmin(request, env) {
   const token = bearer(request);
   if (!token) throw new Response('Missing administrator token', { status: 401 });
+  const subject = jwtSubject(token);
+  if (!subject) throw new Response('Administrator token is invalid', { status: 401 });
   const base = String(env.NEON_DATA_API_URL || '').replace(/\/+$/, '');
   if (!base) throw new Response('Worker backend is not configured', { status: 503 });
 
-  const res = await fetch(`${base}/admin_users?select=id,role,is_active&is_active=eq.true&limit=1`, {
+  const res = await fetch(`${base}/admin_users?select=id,role,is_active&id=eq.${encodeURIComponent(subject)}&is_active=eq.true&limit=1`, {
     headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
   });
   if (!res.ok) throw new Response('Administrator token could not be verified', { status: 401 });
   const rows = await res.json().catch(() => []);
   const admin = Array.isArray(rows) ? rows[0] : null;
-  if (!admin || !admin.is_active || !ADMIN_ROLES.has(admin.role)) {
+  if (!admin || String(admin.id) !== subject || !admin.is_active || !ADMIN_ROLES.has(admin.role)) {
     throw new Response('Administrator authorization required', { status: 403 });
   }
   return admin;
