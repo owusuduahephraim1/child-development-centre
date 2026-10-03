@@ -27,6 +27,9 @@ jobs:
             assets/app.v3.0.0-neon-r2.js
             assets/public-runtime.v3.0.0.js
             assets/password-recovery.v2.3.1.js
+            assets/admin-login.v1.0.0.js
+            assets/admin-login.v1.0.0.css
+            admin/index.html
             scripts/build-pages.mjs
             worker/src/index.js
             worker/wrangler.toml.example
@@ -42,6 +45,7 @@ jobs:
           node --check assets/runtime-config.js
           node --check assets/public-runtime.v3.0.0.js
           node --check assets/password-recovery.v2.3.1.js
+          node --check assets/admin-login.v1.0.0.js
           node --check worker/src/index.js
           node --input-type=module --check < assets/app.v3.0.0-neon-r2.js
           node --check scripts/build-pages.mjs
@@ -56,7 +60,9 @@ jobs:
           index = Path('index.html').read_text(encoding='utf-8')
           runtime = Path('assets/runtime-config.js').read_text(encoding='utf-8')
           app = Path('assets/app.v3.0.0-neon-r2.js').read_text(encoding='utf-8')
-          active = '\n'.join([index, runtime, app])
+          admin = Path('admin/index.html').read_text(encoding='utf-8')
+          admin_js = Path('assets/admin-login.v1.0.0.js').read_text(encoding='utf-8')
+          active = '\n'.join([index, runtime, app, admin, admin_js])
 
           expected = [
               'window.CDC_CONFIG',
@@ -66,6 +72,11 @@ jobs:
               'seo_share_image',
               'property="og:image"',
               'name="twitter:image"',
+              'Secure Administration Portal',
+              'Administrator Sign In',
+              "from('admin_users')",
+              'resetPasswordForEmail',
+              "new URL('admin/'",
           ]
           for value in expected:
               if value not in active:
@@ -87,6 +98,12 @@ jobs:
 
           runtime_pos = index.find('assets/runtime-config.js')
           app_pos = index.find('assets/app.v3.0.0-neon-r2.js')
+          if 'name="robots" content="noindex,nofollow,noarchive"' not in admin:
+              raise SystemExit('Dedicated admin page must remain excluded from search indexing.')
+          if '../assets/runtime-config.js' not in admin or '../assets/admin-login.v1.0.0.js' not in admin:
+              raise SystemExit('Dedicated admin page is missing required runtime assets.')
+          if "eq('id', session.user.id)" not in admin_js or "is_active" not in admin_js:
+              raise SystemExit('Dedicated admin login must verify the active administrator record.')
           if runtime_pos < 0 or app_pos < 0 or runtime_pos > app_pos:
               raise SystemExit('CDC runtime configuration must load before the application module.')
 
