@@ -25,7 +25,7 @@ jobs:
       - name: Verify anonymous site path and sensitive RPC blocks
         shell: bash
         run: |
-          cat > /tmp/verify-neon.mjs <<'EOF'
+          cat > verify-neon.mjs <<'EOF'
           import { createClient, SupabaseAuthAdapter } from '@neondatabase/neon-js';
 
           const client = createClient({
@@ -74,4 +74,4 @@ jobs:
           console.log('Temporary Neon permission hardening verified through neon-js.');
           EOF
 
-          node /tmp/verify-neon.mjs
+          node verify-neon.mjs
