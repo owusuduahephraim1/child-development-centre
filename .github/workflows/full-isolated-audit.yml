@@ -1,4 +1,5 @@
 name: CDC Full Isolated Browser Audit
+# Retest after public form async-reset hardening.
 
 on:
   push:
