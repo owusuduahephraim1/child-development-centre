@@ -37,7 +37,6 @@ const config = `window.CDC_CONFIG = {
   bootstrapOrganisationLogo: ${js(process.env.CDC_ORGANISATION_LOGO_URL)},
   bootstrapSchoolLogo: ${js(process.env.CDC_SCHOOL_LOGO_URL)}
 };
-window.NIS_CONFIG = window.CDC_CONFIG;
 `;
 
 await writeFile(resolve(out, 'assets/runtime-config.js'), config);
