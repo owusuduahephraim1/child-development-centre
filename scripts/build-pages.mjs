@@ -35,6 +35,7 @@ await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 
 await cp(resolve(root, 'assets'), resolve(out, 'assets'), { recursive: true });
+await cp(resolve(root, 'admin'), resolve(out, 'admin'), { recursive: true });
 await cp(resolve(root, 'index.html'), resolve(out, 'index.html'));
 await writeFile(resolve(out, '.nojekyll'), '');
 
