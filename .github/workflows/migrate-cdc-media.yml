@@ -1,0 +1,86 @@
+name: Migrate CDC Legacy Media
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/media-migration-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CDC_BUCKET: cdc-media-production
+      CDC_WORKER_URL: https://cdc-media.edusentia-enterprise-neon.workers.dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Cloudflare credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+
+      - name: Install Wrangler and jq
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global wrangler@latest
+          jq --version
+
+      - name: Copy and verify legacy media
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .migration
+          : > .migration/verified.tsv
+
+          jq -r '.[] | [.url,.storage_key] | @tsv' docs/reference-r2-media-manifest.json |
+          while IFS=$'\t' read -r source_url key; do
+            case "$key" in
+              images/*.webp) content_type="image/webp" ;;
+              images/*.png) content_type="image/png" ;;
+              images/*.jpg|images/*.jpeg) content_type="image/jpeg" ;;
+              videos/*.mp4) content_type="video/mp4" ;;
+              videos/*.webm) content_type="video/webm" ;;
+              *) echo "Unsupported media key: $key"; exit 1 ;;
+            esac
+
+            src=".migration/source.bin"
+            dst=".migration/target.bin"
+
+            echo "Downloading legacy object: $key"
+            curl --fail --location --silent --show-error "$source_url" --output "$src"
+            test -s "$src"
+
+            echo "Uploading to CDC R2: $key"
+            wrangler r2 object put "$CDC_BUCKET/$key"               --file "$src"               --content-type "$content_type"               --remote               --force
+
+            echo "Verifying through CDC Worker: $key"
+            curl --fail --location --silent --show-error "$CDC_WORKER_URL/media/$key" --output "$dst"
+            cmp --silent "$src" "$dst"
+
+            sha256sum "$src" | awk -v key="$key" '{print key "\t" $1}' >> .migration/verified.tsv
+            rm -f "$src" "$dst"
+          done
+
+          expected="$(jq 'length' docs/reference-r2-media-manifest.json)"
+          actual="$(wc -l < .migration/verified.tsv | tr -d ' ')"
+          test "$actual" = "$expected"
+          echo "Verified $actual CDC media objects."
+
+      - name: Upload verification record
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdc-media-migration-verification
+          path: .migration/verified.tsv
+          retention-days: 30
