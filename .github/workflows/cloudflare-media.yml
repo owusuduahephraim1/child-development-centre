@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if wrangler r2 bucket list --json | python3 -c "import json,sys; data=json.load(sys.stdin); items=data.get('buckets', data) if isinstance(data,dict) else data; sys.exit(0 if any((x.get('name')=='$CDC_BUCKET') for x in items) else 1)"; then
+          if wrangler r2 bucket list | grep -F "$CDC_BUCKET" >/dev/null 2>&1; then
             echo "R2 bucket $CDC_BUCKET already exists."
           else
             wrangler r2 bucket create "$CDC_BUCKET"
