@@ -30,6 +30,7 @@ jobs:
           const errors=[];
           page.on('pageerror',e=>errors.push('pageerror: '+e.message));
           page.on('console',m=>{if(m.type()==='error')errors.push('console: '+m.text())});
+          page.on('response',async r=>{if(r.url().includes('/partners?')){console.log('PARTNERS_RESPONSE',r.status(),r.url());try{console.log('PARTNERS_BODY',await r.text())}catch{}}});
           const response=await page.goto(process.env.SITE_URL,{waitUntil:'networkidle',timeout:60000});
           assert(response?.ok(),'Public site failed to load');
 
@@ -47,7 +48,8 @@ jobs:
           assert(await page.locator('#leadershipSection').isVisible(),'Leadership section is hidden');
           assert((await page.locator('#leadershipGrid').innerText()).includes('Demo Executive Director'),'Demo leadership did not render');
           assert(await page.locator('#supporters').isVisible(),'Partners/supporters section is hidden');
-          assert((await page.locator('#partnerLogoGrid').innerText()).includes('Demo Education Partner'),'Demo partners did not render');
+          const partnerText=await page.locator('#partnerLogoGrid').innerText(); console.log('PARTNER_GRID_TEXT',JSON.stringify(partnerText)); console.log('PARTNER_GRID_HTML',await page.locator('#partnerLogoGrid').innerHTML());
+          assert(partnerText.includes('Demo Education Partner'),'Demo partners did not render');
           assert((await page.locator('#supporterGrid').innerText()).includes('Demo Supporter'),'Demo supporter recognition did not render');
 
           const resources=page.locator('#resourceList a');
