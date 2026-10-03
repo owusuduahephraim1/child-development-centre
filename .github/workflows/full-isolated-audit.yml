@@ -101,7 +101,7 @@ jobs:
           await page.locator('#newsletterName').fill('CDC Audit Subscriber');
           await page.locator('#newsletterEmail').fill(`newsletter-${tag}@example.com`);
           await page.locator('#newsletterForm button[type="submit"]').click();
-          await page.waitForFunction(() => /subscrib/i.test(document.querySelector('#newsletterStatus')?.textContent || ''));
+          await page.waitForFunction(() => /subscription|subscribed/i.test(document.querySelector('#newsletterStatus')?.textContent || ''));
 
           await page.waitForFunction(() => document.querySelectorAll('#donationDesignation option').length >= 1);
           await page.locator('#donationForm input[name="name"]').fill('CDC Audit Donor');
