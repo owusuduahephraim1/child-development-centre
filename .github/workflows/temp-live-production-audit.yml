@@ -1,0 +1,160 @@
+name: Temporary CDC Live Production Browser Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/temp-live-production-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  live-browser-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright@latest
+          npx playwright install --with-deps chromium
+
+      - name: Audit live production UI without writes
+        shell: bash
+        env:
+          SITE_URL: https://owusuduahephraim1.github.io/child-development-centre/
+        run: |
+          set -euo pipefail
+          cat > /tmp/cdc-live-audit.mjs <<'EOF'
+          import { chromium } from 'playwright';
+
+          function assert(condition, message) {
+            if (!condition) throw new Error(message);
+          }
+
+          const base = process.env.SITE_URL;
+          const browser = await chromium.launch({ headless: true });
+
+          async function auditPage(page, label) {
+            const errors = [];
+            const failedRequests = [];
+
+            page.on('pageerror', (error) => errors.push('pageerror: ' + error.message));
+            page.on('console', (msg) => {
+              if (msg.type() === 'error') errors.push('console: ' + msg.text());
+            });
+            page.on('requestfailed', (request) => {
+              failedRequests.push(request.url() + ' :: ' + (request.failure()?.errorText || 'request failed'));
+            });
+
+            await page.goto(base, { waitUntil: 'networkidle', timeout: 60000 });
+            await page.waitForFunction(() =>
+              document.querySelector('#brandName')?.textContent?.includes('Child Development Centre'),
+              { timeout: 30000 }
+            );
+
+            const requiredIds = [
+              'heroTitle', 'school', 'gallery', 'galleryGrid', 'videos', 'videoGrid',
+              'contactForm', 'newsletterForm', 'donationForm', 'adminOpen'
+            ];
+            for (const id of requiredIds) {
+              assert(await page.locator('#' + id).count() === 1, `${label}: missing #${id}`);
+            }
+
+            const brokenTargets = await page.evaluate(() => {
+              const ids = new Set([...document.querySelectorAll('[id]')].map(el => el.id));
+              return [...document.querySelectorAll('a[href^="#"]')]
+                .map(a => (a.getAttribute('href') || '').slice(1))
+                .filter(target => target && !ids.has(target));
+            });
+            assert(brokenTargets.length === 0, `${label}: broken internal targets: ${brokenTargets.join(', ')}`);
+
+            await page.locator('#gallery').scrollIntoViewIfNeeded();
+            await page.waitForFunction(() => {
+              const img = document.querySelector('#galleryGrid img');
+              return !!img && img.complete && img.naturalWidth > 0;
+            }, { timeout: 30000 });
+            assert(await page.locator('#galleryGrid .album-card').count() >= 1, `${label}: no published gallery cards`);
+
+            await page.locator('#videos').scrollIntoViewIfNeeded();
+            await page.waitForFunction(() => document.querySelectorAll('#videoGrid .video-card').length >= 1, { timeout: 30000 });
+            assert(await page.locator('#videoGrid .video-card').count() >= 1, `${label}: no published video cards`);
+
+            const videoUrl = await page.locator('#videoGrid video').first().getAttribute('src').catch(() => null)
+              || await page.locator('#videoGrid source').first().getAttribute('src').catch(() => null);
+            if (videoUrl) {
+              const absoluteVideoUrl = new URL(videoUrl, base).href;
+              const response = await page.request.get(absoluteVideoUrl, {
+                headers: { Range: 'bytes=0-1023' },
+                timeout: 30000
+              });
+              assert(response.status() === 206, `${label}: video range request returned ${response.status()}`);
+              const body = await response.body();
+              assert(body.length === 1024, `${label}: video range body was ${body.length} bytes`);
+              const contentRange = response.headers()['content-range'] || '';
+              assert(/^bytes 0-1023\//i.test(contentRange), `${label}: invalid content-range ${contentRange}`);
+            }
+
+            assert(await page.locator('#contactForm button[type="submit"]').isVisible(), `${label}: contact submit missing`);
+            assert(await page.locator('#newsletterForm button[type="submit"]').isVisible(), `${label}: newsletter submit missing`);
+            assert(await page.locator('#donationForm button[type="submit"]').isVisible(), `${label}: donation submit missing`);
+
+            await page.locator('#adminOpen').click();
+            await page.waitForTimeout(400);
+            assert(await page.locator('#adminModal').isVisible(), `${label}: admin modal did not open`);
+            assert(await page.locator('#adminLoginForm').isVisible(), `${label}: admin login form missing`);
+            assert(await page.locator('#adminSignupForm').count() === 0, `${label}: legacy admin signup UI present`);
+            assert(await page.locator('#showFirstAdminSetup').count() === 0, `${label}: legacy first-admin UI present`);
+            assert(await page.locator('#adminForgotPassword').isVisible(), `${label}: password recovery control missing`);
+
+            await page.locator('#adminForgotPassword').click();
+            assert(await page.locator('#adminRecoveryForm').isVisible(), `${label}: password recovery form did not open`);
+            await page.locator('#adminRecoveryBack').click();
+            assert(await page.locator('#adminLoginForm').isVisible(), `${label}: login form did not restore`);
+            await page.locator('.modal-close[data-close-admin]').click();
+
+            if (errors.length) throw new Error(`${label}: console/page errors:\n${errors.join('\n')}`);
+            if (failedRequests.length) throw new Error(`${label}: failed network requests:\n${failedRequests.join('\n')}`);
+          }
+
+          const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+          desktop.setDefaultTimeout(20000);
+          await auditPage(desktop, 'desktop');
+          await desktop.screenshot({ path: '/tmp/cdc-live-desktop.png', fullPage: true });
+          await desktop.close();
+
+          const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+          mobile.setDefaultTimeout(20000);
+          await mobile.goto(base, { waitUntil: 'networkidle', timeout: 60000 });
+          await mobile.waitForFunction(() =>
+            document.querySelector('#brandName')?.textContent?.includes('Child Development Centre'),
+            { timeout: 30000 }
+          );
+          assert(await mobile.locator('#navToggle').isVisible(), 'mobile: navigation toggle missing');
+          await mobile.locator('#navToggle').click();
+          assert(await mobile.locator('#primaryNav').evaluate(el => el.classList.contains('open')), 'mobile: navigation did not open');
+          const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          assert(overflow <= 2, `mobile: horizontal overflow is ${overflow}px`);
+          assert(await mobile.locator('#galleryGrid .album-card').count() >= 1, 'mobile: gallery cards missing');
+          assert(await mobile.locator('#videoGrid .video-card').count() >= 1, 'mobile: video cards missing');
+          await mobile.screenshot({ path: '/tmp/cdc-live-mobile.png', fullPage: true });
+          await mobile.close();
+
+          await browser.close();
+          console.log('CDC live production browser audit passed without writing production data.');
+          EOF
+          node /tmp/cdc-live-audit.mjs
+
+      - name: Upload audit screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdc-live-production-audit-screenshots
+          path: |
+            /tmp/cdc-live-desktop.png
+            /tmp/cdc-live-mobile.png
+          if-no-files-found: ignore
+          retention-days: 14
