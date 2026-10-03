@@ -13,34 +13,65 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
+      AUTH: https://ep-square-frost-b403ctr0.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth
       API: https://ep-square-frost-b403ctr0.apirest.c-6.us-east-2.aws.neon.tech/neondb/rest/v1
+
     steps:
-      - name: Verify public read and RPC permissions
+      - uses: actions/checkout@v4
+
+      - name: Install Neon JS
+        run: npm install --no-save @neondatabase/neon-js@0.7.0-beta
+
+      - name: Verify anonymous site path and sensitive RPC blocks
         shell: bash
         run: |
-          set -euo pipefail
+          cat > /tmp/verify-neon.mjs <<'EOF'
+          import { createClient, SupabaseAuthAdapter } from '@neondatabase/neon-js';
 
-          public="$(curl --fail --silent --show-error "$API/website_settings?select=key,value&key=eq.organisation_name")"
-          printf '%s' "$public" | grep -F 'Child Development Centre' >/dev/null
+          const client = createClient({
+            auth: {
+              adapter: SupabaseAuthAdapter(),
+              url: process.env.AUTH,
+              allowAnonymous: true,
+            },
+            dataApi: { url: process.env.API },
+          });
 
-          newsletter="$(curl --fail --silent --show-error             -H 'content-type: application/json'             -d '{"p_name":"Migration Test","p_email":"migration-test@example.invalid"}'             "$API/rpc/subscribe_newsletter_v2")"
-          printf '%s' "$newsletter" | grep -F '"ok": true' >/dev/null || printf '%s' "$newsletter" | grep -F '"ok":true' >/dev/null
-
-          check_blocked() {
-            local rpc="$1"
-            local body="$2"
-            local code
-            code="$(curl --silent --show-error -o /tmp/blocked.json -w '%{http_code}'               -H 'content-type: application/json'               -d "$body"               "$API/rpc/$rpc")"
-            if [ "$code" -lt 400 ]; then
-              echo "Sensitive RPC unexpectedly callable: $rpc"
-              cat /tmp/blocked.json
-              exit 1
-            fi
-            echo "Blocked as expected: $rpc ($code)"
+          const { data: settings, error: settingsError } = await client
+            .from('website_settings')
+            .select('key,value')
+            .eq('key', 'organisation_name');
+          if (settingsError) throw new Error('Public website_settings failed: ' + settingsError.message);
+          if (!settings?.some((row) => row.value === 'Child Development Centre')) {
+            throw new Error('Expected public organisation_name was not returned.');
           }
 
-          check_blocked "admin_setup_available" '{}'
-          check_blocked "next_receipt_reference" '{}'
-          check_blocked "record_gateway_verified_donation" '{"p_intent_id":"00000000-0000-0000-0000-000000000000","p_provider":"test","p_provider_reference":"test","p_received_at":"2026-10-03T00:00:00Z","p_note":null}'
+          const { data: newsletter, error: newsletterError } = await client.rpc('subscribe_newsletter_v2', {
+            p_name: 'Migration Test',
+            p_email: 'migration-test@example.invalid',
+          });
+          if (newsletterError) throw new Error('Public newsletter RPC failed: ' + newsletterError.message);
+          if (!newsletter?.ok) throw new Error('Newsletter RPC did not return ok=true.');
 
-          echo "Temporary Neon permission hardening verified through the Data API."
+          const blocked = [
+            ['admin_setup_available', {}],
+            ['next_receipt_reference', {}],
+            ['record_gateway_verified_donation', {
+              p_intent_id: '00000000-0000-0000-0000-000000000000',
+              p_provider: 'test',
+              p_provider_reference: 'test',
+              p_received_at: '2026-10-03T00:00:00Z',
+              p_note: null,
+            }],
+          ];
+
+          for (const [name, args] of blocked) {
+            const { error } = await client.rpc(name, args);
+            if (!error) throw new Error('Sensitive RPC unexpectedly callable: ' + name);
+            console.log('Blocked as expected:', name, '-', error.message);
+          }
+
+          console.log('Temporary Neon permission hardening verified through neon-js.');
+          EOF
+
+          node /tmp/verify-neon.mjs
