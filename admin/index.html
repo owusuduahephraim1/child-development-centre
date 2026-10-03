@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0f5c45">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+  <meta name="description" content="Secure administration portal for Child Development Centre.">
+  <title>Administration | Child Development Centre</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/admin-login.v1.0.0.css">
+  <script src="../assets/runtime-config.js"></script>
+  <script type="module" src="../assets/admin-login.v1.0.0.js"></script>
+</head>
+<body>
+  <main class="admin-entry">
+    <section class="admin-brand-panel" aria-label="Child Development Centre administration">
+      <a class="admin-brand" href="../" aria-label="Return to Child Development Centre website">
+        <span class="admin-brand-mark">CDC</span>
+        <span><strong>Child Development Centre</strong><small>Secure Administration Portal</small></span>
+      </a>
+      <div class="brand-copy">
+        <p class="eyebrow">Authorised access only</p>
+        <h1>Manage the mission with confidence.</h1>
+        <p>Secure access to website content, programmes, impact, media, enquiries, donations and administrative settings.</p>
+      </div>
+      <div class="security-note">
+        <strong>Protected administration</strong>
+        <p>Authentication is handled by the dedicated Child Development Centre Neon Auth service. Access is granted only to active administrator accounts.</p>
+      </div>
+      <p class="brand-foot">Child Development Centre · Nurturing Children. Empowering Communities. Transforming Futures.</p>
+    </section>
+
+    <section class="admin-form-panel">
+      <div class="admin-card">
+        <div class="mobile-brand">
+          <span class="admin-brand-mark">CDC</span>
+          <div><strong>Child Development Centre</strong><small>Administration Portal</small></div>
+        </div>
+
+        <div id="loginView">
+          <p class="eyebrow dark">Secure sign in</p>
+          <h2>Administrator Sign In</h2>
+          <p class="intro">Use your authorised Child Development Centre administrator account.</p>
+          <form id="loginForm" novalidate>
+            <label>Email address
+              <input name="email" type="email" autocomplete="username" maxlength="180" required>
+            </label>
+            <label>Password
+              <span class="password-wrap">
+                <input id="loginPassword" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+                <button class="password-toggle" type="button" data-toggle-password="loginPassword" aria-label="Show password">Show</button>
+              </span>
+            </label>
+            <button id="loginSubmit" class="primary-button" type="submit">Sign In Securely</button>
+            <button id="forgotPassword" class="text-button" type="button">Forgot Password?</button>
+            <p id="loginStatus" class="status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+
+        <div id="recoveryView" hidden>
+          <p class="eyebrow dark">Account recovery</p>
+          <h2>Reset your password</h2>
+          <p class="intro">Enter the authorised administrator email address. For security, we will not confirm whether an account exists.</p>
+          <form id="recoveryForm" novalidate>
+            <label>Administrator email
+              <input name="email" type="email" autocomplete="email" maxlength="180" required>
+            </label>
+            <button id="recoverySubmit" class="primary-button" type="submit">Send Password Reset Link</button>
+            <button class="secondary-button" type="button" data-back-login>Back to Sign In</button>
+            <p id="recoveryStatus" class="status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+
+        <div id="resetView" hidden>
+          <p class="eyebrow dark">Create new password</p>
+          <h2>Set a new password</h2>
+          <p class="intro">Use at least 12 characters. Password reset links are time-limited and single-use.</p>
+          <form id="resetForm" novalidate>
+            <label>New password
+              <span class="password-wrap">
+                <input id="newPassword" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+                <button class="password-toggle" type="button" data-toggle-password="newPassword" aria-label="Show password">Show</button>
+              </span>
+            </label>
+            <label>Confirm new password
+              <span class="password-wrap">
+                <input id="confirmPassword" name="confirm_password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+                <button class="password-toggle" type="button" data-toggle-password="confirmPassword" aria-label="Show password">Show</button>
+              </span>
+            </label>
+            <button id="resetSubmit" class="primary-button" type="submit">Set New Password</button>
+            <button class="secondary-button" type="button" data-back-login>Back to Sign In</button>
+            <p id="resetStatus" class="status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+
+        <div id="checkingView" class="checking" hidden>
+          <span class="spinner" aria-hidden="true"></span>
+          <h2>Checking administrator access</h2>
+          <p id="checkingStatus">Verifying your secure session…</p>
+        </div>
+
+        <div class="entry-footer">
+          <a href="../">← Return to public website</a>
+          <span>Authorised personnel only</span>
+        </div>
+      </div>
+    </section>
+  </main>
+  <noscript><div class="noscript">JavaScript is required for secure administrator authentication.</div></noscript>
+</body>
+</html>
