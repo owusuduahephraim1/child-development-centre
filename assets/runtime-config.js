@@ -3,7 +3,7 @@ window.CDC_CONFIG = {
   neonDataApiUrl: "https://ep-calm-dawn-b4t6enjm.apirest.c-6.us-east-2.aws.neon.tech/neondb/rest/v1",
   canonicalUrl: "https://owusuduahephraim1.github.io/child-development-centre/",
   version: "3.0.0",
-  videoUploadWorkerUrl: "",
+  videoUploadWorkerUrl: "https://cdc-media.edusentia-enterprise-neon.workers.dev",
   bootstrapOrganisationLogo: "",
   bootstrapSchoolLogo: ""
 };
