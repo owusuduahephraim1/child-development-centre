@@ -1,0 +1,100 @@
+name: Temporary CDC Admin Login Visual Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/temp-admin-login-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  admin-login-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright@latest
+          npx playwright install --with-deps chromium
+
+      - name: Audit live CDC admin entry
+        shell: bash
+        env:
+          SITE_URL: https://owusuduahephraim1.github.io/child-development-centre/
+          ADMIN_URL: https://owusuduahephraim1.github.io/child-development-centre/admin/
+        run: |
+          set -euo pipefail
+          cat > admin-login-audit.mjs <<'EOF'
+          import { chromium } from 'playwright';
+
+          function assert(condition, message) {
+            if (!condition) throw new Error(message);
+          }
+
+          const browser = await chromium.launch({ headless: true });
+
+          async function auditAdmin(viewport, label, screenshot) {
+            const page = await browser.newPage({ viewport });
+            const errors = [];
+            page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+            page.on('console', msg => {
+              if (msg.type() === 'error') errors.push('console: ' + msg.text());
+            });
+
+            const response = await page.goto(process.env.ADMIN_URL, { waitUntil: 'networkidle', timeout: 60000 });
+            assert(response?.ok(), `${label}: admin route returned ${response?.status()}`);
+            assert(await page.locator('h2').filter({ hasText: 'Administrator Sign In' }).isVisible(), `${label}: sign-in heading missing`);
+            assert(await page.locator('#loginForm input[name="email"]').isVisible(), `${label}: email input missing`);
+            assert(await page.locator('#loginPassword').isVisible(), `${label}: password input missing`);
+            assert(await page.locator('#loginSubmit').isVisible(), `${label}: sign-in button missing`);
+            assert(await page.locator('#forgotPassword').isVisible(), `${label}: forgot-password control missing`);
+
+            await page.locator('[data-toggle-password="loginPassword"]').click();
+            assert(await page.locator('#loginPassword').getAttribute('type') === 'text', `${label}: password reveal did not work`);
+            await page.locator('[data-toggle-password="loginPassword"]').click();
+            assert(await page.locator('#loginPassword').getAttribute('type') === 'password', `${label}: password hide did not work`);
+
+            await page.locator('#forgotPassword').click();
+            assert(await page.locator('#recoveryView').isVisible(), `${label}: recovery view did not open`);
+            assert(await page.locator('#recoveryForm input[name="email"]').isVisible(), `${label}: recovery email missing`);
+            await page.locator('[data-back-login]').first().click();
+            assert(await page.locator('#loginView').isVisible(), `${label}: return to login failed`);
+
+            const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            assert(overflow <= 2, `${label}: horizontal overflow is ${overflow}px`);
+
+            if (errors.length) throw new Error(`${label}: console/page errors:\n${errors.join('\n')}`);
+            await page.screenshot({ path: screenshot, fullPage: true });
+            await page.close();
+          }
+
+          const publicPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+          await publicPage.goto(process.env.SITE_URL, { waitUntil: 'networkidle', timeout: 60000 });
+          await publicPage.locator('#adminOpen').click();
+          await publicPage.waitForURL('**/child-development-centre/admin/');
+          assert(publicPage.url() === process.env.ADMIN_URL, 'Public Administration control did not route to dedicated admin page.');
+          await publicPage.close();
+
+          await auditAdmin({ width: 1440, height: 1000 }, 'desktop', '/tmp/cdc-admin-desktop.png');
+          await auditAdmin({ width: 390, height: 844 }, 'mobile', '/tmp/cdc-admin-mobile.png');
+
+          await browser.close();
+          console.log('CDC dedicated admin login visual audit passed.');
+          EOF
+          node admin-login-audit.mjs
+
+      - name: Upload audit screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdc-admin-login-audit-screenshots
+          path: |
+            /tmp/cdc-admin-desktop.png
+            /tmp/cdc-admin-mobile.png
+          if-no-files-found: ignore
+          retention-days: 14
