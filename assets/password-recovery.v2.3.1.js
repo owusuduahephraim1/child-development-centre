@@ -41,11 +41,9 @@ function openAdminModal() {
 
 function showOnly(which) {
   const login = $('adminLoginForm');
-  const signup = $('adminSignupForm');
   const recovery = $('adminRecoveryForm');
   const reset = $('adminResetPasswordForm');
   if (login) login.hidden = which !== 'login';
-  if (signup) signup.hidden = true;
   if (recovery) recovery.hidden = which !== 'recovery';
   if (reset) reset.hidden = which !== 'reset';
 }
