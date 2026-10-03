@@ -9,6 +9,8 @@ on:
 permissions:
   contents: read
 
+# rerun after CSP cleanup
+
 jobs:
   admin-login-audit:
     runs-on: ubuntu-latest
