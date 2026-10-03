@@ -108,6 +108,9 @@ jobs:
               raise SystemExit('Dedicated admin login must verify the active administrator record.')
           if "params.get('admin')==='1'" not in app or "from('admin_users')" not in app:
               raise SystemExit('Public dashboard handoff must verify an authenticated active administrator.')
+          # safeUrl empty-value regression: blank optional URLs must not resolve to the current page.
+          if "const raw=String(u||'').trim();if(!raw)return'';" not in app:
+              raise SystemExit('safeUrl must reject blank optional URLs before URL resolution.')
           if runtime_pos < 0 or app_pos < 0 or runtime_pos > app_pos:
               raise SystemExit('CDC runtime configuration must load before the application module.')
 
