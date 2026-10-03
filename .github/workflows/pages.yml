@@ -54,3 +54,33 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  verify-live:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Verify live CDC site and media service
+        shell: bash
+        run: |
+          set -euo pipefail
+          SITE_URL="https://owusuduahephraim1.github.io/child-development-centre/"
+          RUNTIME_URL="${SITE_URL}assets/runtime-config.js"
+          WORKER_URL="https://cdc-media.edusentia-enterprise-neon.workers.dev"
+
+          for attempt in 1 2 3 4 5; do
+            if page="$(curl --fail --silent --show-error --location "$SITE_URL")" \
+              && runtime="$(curl --fail --silent --show-error --location "$RUNTIME_URL")" \
+              && health="$(curl --fail --silent --show-error --location "$WORKER_URL/health")"; then
+              printf '%s' "$page" | grep -F "Child Development Centre" >/dev/null
+              printf '%s' "$runtime" | grep -F "$WORKER_URL" >/dev/null
+              printf '%s' "$runtime" | grep -F "ep-calm-dawn-b4t6enjm.neonauth.c-6.us-east-2.aws.neon.tech" >/dev/null
+              printf '%s' "$runtime" | grep -F "ep-calm-dawn-b4t6enjm.apirest.c-6.us-east-2.aws.neon.tech" >/dev/null
+              printf '%s' "$health" | grep -F '"ok":true' >/dev/null
+              echo "Live CDC site, Neon runtime, and media Worker verified."
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Live CDC smoke test failed."
+          exit 1
