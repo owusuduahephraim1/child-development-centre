@@ -2,10 +2,6 @@ name: Provision CDC Cloudflare Media
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/cloudflare-provision-trigger'
 
 permissions:
   contents: read
