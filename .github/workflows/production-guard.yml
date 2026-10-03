@@ -98,12 +98,16 @@ jobs:
 
           runtime_pos = index.find('assets/runtime-config.js')
           app_pos = index.find('assets/app.v3.0.0-neon-r2.js')
+          if 'id="adminOpen"' in index or '>Administration</button>' in index:
+              raise SystemExit('Public website must not expose an administrator entry control.')
           if 'name="robots" content="noindex,nofollow,noarchive"' not in admin:
               raise SystemExit('Dedicated admin page must remain excluded from search indexing.')
           if '../assets/runtime-config.js' not in admin or '../assets/admin-login.v1.0.0.js' not in admin:
               raise SystemExit('Dedicated admin page is missing required runtime assets.')
           if "eq('id', session.user.id)" not in admin_js or "is_active" not in admin_js:
               raise SystemExit('Dedicated admin login must verify the active administrator record.')
+          if "params.get('admin')==='1'" not in app or "from('admin_users')" not in app:
+              raise SystemExit('Public dashboard handoff must verify an authenticated active administrator.')
           if runtime_pos < 0 or app_pos < 0 or runtime_pos > app_pos:
               raise SystemExit('CDC runtime configuration must load before the application module.')
 
