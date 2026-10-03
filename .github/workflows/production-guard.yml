@@ -87,6 +87,13 @@ jobs:
           if runtime_pos < 0 or app_pos < 0 or runtime_pos > app_pos:
               raise SystemExit('CDC runtime configuration must load before the application module.')
 
+          import re
+          ids = set(re.findall(r'id=["\\\']([^"\\\']+)["\\\']', index))
+          internal_targets = re.findall(r'href=["\\\']#([^"\\\']+)["\\\']', index)
+          missing_targets = sorted({target for target in internal_targets if target and target not in ids})
+          if missing_targets:
+              raise SystemExit('Broken internal navigation targets: ' + ', '.join(missing_targets))
+
           print('CDC v3 runtime is isolated from old CDC and Edusentia resources.')
           PY
 
