@@ -14,6 +14,23 @@ function js(value) {
   return JSON.stringify(String(value || ''));
 }
 
+function absoluteUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+function upsertHeadTag(html, pattern, tag) {
+  return pattern.test(html)
+    ? html.replace(pattern, tag)
+    : html.replace('</head>', `  ${tag}\n</head>`);
+}
+
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 
@@ -28,6 +45,7 @@ const defaultCanonical = repoOwner && repoName
   : '';
 
 const canonicalUrl = cleanUrl(process.env.CDC_CANONICAL_URL || defaultCanonical);
+const seoShareImageUrl = absoluteUrl(process.env.CDC_SEO_SHARE_IMAGE_URL);
 const config = `window.CDC_CONFIG = {
   neonAuthUrl: ${js(process.env.CDC_NEON_AUTH_URL)},
   neonDataApiUrl: ${js(process.env.CDC_NEON_DATA_API_URL)},
@@ -43,14 +61,13 @@ await writeFile(resolve(out, 'assets/runtime-config.js'), config);
 
 let index = await readFile(resolve(out, 'index.html'), 'utf8');
 if (canonicalUrl) {
-  const canonicalTag = `<link rel="canonical" href="${canonicalUrl}">`;
-  if (/<link rel="canonical"[^>]*>/i.test(index)) {
-    index = index.replace(/<link rel="canonical"[^>]*>/i, canonicalTag);
-  } else {
-    index = index.replace('</head>', `  ${canonicalTag}\n</head>`);
-  }
-  index = index.replace(/<meta property="og:url"[^>]*>\s*/gi, '');
-  index = index.replace('</head>', `  <meta property="og:url" content="${canonicalUrl}">\n</head>`);
+  index = upsertHeadTag(index, /<link(?:\s+id="canonicalUrl")?\s+rel="canonical"[^>]*>/i, `<link id="canonicalUrl" rel="canonical" href="${canonicalUrl}">`);
+  index = upsertHeadTag(index, /<meta(?:\s+id="ogUrl")?\s+property="og:url"[^>]*>/i, `<meta id="ogUrl" property="og:url" content="${canonicalUrl}">`);
+}
+if (seoShareImageUrl) {
+  index = upsertHeadTag(index, /<meta(?:\s+id="ogImage")?\s+property="og:image"[^>]*>/i, `<meta id="ogImage" property="og:image" content="${seoShareImageUrl}">`);
+  index = upsertHeadTag(index, /<meta\s+property="og:image:secure_url"[^>]*>/i, `<meta property="og:image:secure_url" content="${seoShareImageUrl}">`);
+  index = upsertHeadTag(index, /<meta(?:\s+id="twitterImage")?\s+name="twitter:image"[^>]*>/i, `<meta id="twitterImage" name="twitter:image" content="${seoShareImageUrl}">`);
 }
 await writeFile(resolve(out, 'index.html'), index);
 
