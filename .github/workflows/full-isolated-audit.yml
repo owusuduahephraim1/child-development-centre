@@ -1,0 +1,146 @@
+name: CDC Full Isolated Browser Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/full-isolated-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser-audit:
+    runs-on: ubuntu-latest
+    env:
+      AUDIT_AUTH: https://ep-royal-dream-b48oc1t0.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth
+      AUDIT_API: https://ep-royal-dream-b48oc1t0.apirest.c-6.us-east-2.aws.neon.tech/neondb/rest/v1
+      MEDIA_WORKER: https://cdc-media.edusentia-enterprise-neon.workers.dev
+      AUDIT_TAG: gha-${{ github.run_id }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure isolated audit runtime
+        shell: bash
+        run: |
+          cat > assets/runtime-config.js <<EOF
+          window.CDC_CONFIG = {
+            neonAuthUrl: "$AUDIT_AUTH",
+            neonDataApiUrl: "$AUDIT_API",
+            canonicalUrl: "http://127.0.0.1:4173/",
+            version: "3.0.0-audit",
+            videoUploadWorkerUrl: "$MEDIA_WORKER",
+            bootstrapOrganisationLogo: "",
+            bootstrapSchoolLogo: ""
+          };
+          EOF
+
+      - name: Install Playwright
+        shell: bash
+        run: |
+          npm install --no-save playwright@latest
+          npx playwright install --with-deps chromium
+
+      - name: Start isolated static site
+        shell: bash
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/cdc-audit-http.log 2>&1 &
+          echo $! > /tmp/cdc-audit-http.pid
+          for i in 1 2 3 4 5; do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/cdc-audit-http.log
+          exit 1
+
+      - name: Run desktop mobile and forms audit
+        shell: bash
+        run: |
+          cat > audit-browser.mjs <<'EOF'
+          import { chromium } from 'playwright';
+
+          function assert(condition, message) {
+            if (!condition) throw new Error(message);
+          }
+
+          const tag = process.env.AUDIT_TAG || 'audit';
+          const base = 'http://127.0.0.1:4173/';
+          const browser = await chromium.launch({ headless: true });
+
+          const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+          page.setDefaultTimeout(20000);
+          const errors = [];
+          page.on('pageerror', (error) => errors.push('pageerror: ' + error.message));
+          page.on('console', (msg) => {
+            if (msg.type() === 'error') errors.push('console: ' + msg.text());
+          });
+
+          await page.goto(base, { waitUntil: 'networkidle' });
+          await page.waitForFunction(() => document.querySelector('#brandName')?.textContent?.includes('Child Development Centre'));
+
+          assert((await page.locator('#heroTitle').textContent())?.trim().length > 10, 'Hero title did not render.');
+          assert(await page.locator('#school').count() === 1, 'Nipe International School section is missing.');
+          assert(await page.locator('#galleryGrid .album-card').count() >= 1, 'Published gallery did not render.');
+          assert(await page.locator('#videoGrid .video-card').count() >= 1, 'Published videos did not render.');
+          assert(await page.locator('#videos').isVisible(), 'Public video section remained hidden.');
+
+          await page.waitForFunction(() => {
+            const img = document.querySelector('#galleryGrid img');
+            return !!img && img.complete && img.naturalWidth > 0;
+          });
+
+          await page.locator('#contactForm input[name="name"]').fill('CDC Audit Contact');
+          await page.locator('#contactForm input[name="email"]').fill(`contact-${tag}@example.com`);
+          await page.locator('#contactForm input[name="subject"]').fill('Automated isolated audit');
+          await page.locator('#contactForm textarea[name="message"]').fill('This is an isolated audit submission on the temporary Neon branch.');
+          await page.locator('#contactForm button[type="submit"]').click();
+          await page.waitForFunction(() => /reference|received/i.test(document.querySelector('#contactStatus')?.textContent || ''));
+
+          await page.locator('#newsletterName').fill('CDC Audit Subscriber');
+          await page.locator('#newsletterEmail').fill(`newsletter-${tag}@example.com`);
+          await page.locator('#newsletterForm button[type="submit"]').click();
+          await page.waitForFunction(() => /subscrib/i.test(document.querySelector('#newsletterStatus')?.textContent || ''));
+
+          await page.waitForFunction(() => document.querySelectorAll('#donationDesignation option').length >= 1);
+          await page.locator('#donationForm input[name="name"]').fill('CDC Audit Donor');
+          await page.locator('#donationForm input[name="email"]').fill(`donation-${tag}@example.com`);
+          await page.locator('#donationForm input[name="amount"]').fill('25');
+          await page.locator('#donationForm select[name="currency"]').selectOption('GHS');
+          await page.locator('#donationForm button[type="submit"]').click();
+          await page.waitForFunction(() => /donation reference|recorded/i.test(document.querySelector('#donationStatus')?.textContent || ''));
+
+          await page.locator('#adminOpen').click();
+          await page.waitForTimeout(700);
+          assert(await page.locator('#adminModal').isVisible(), 'Admin modal did not open.');
+          assert(await page.locator('#adminLoginForm').isVisible(), 'Admin sign-in form is not visible.');
+          assert(await page.locator('#adminSignupForm').count() === 0, 'Legacy admin signup UI is present.');
+          assert(await page.locator('#showFirstAdminSetup').count() === 0, 'Legacy first-admin bootstrap UI is present.');
+          assert(await page.locator('#adminForgotPassword').isVisible(), 'Password recovery control did not render.');
+          await page.locator('#adminForgotPassword').click();
+          assert(await page.locator('#adminRecoveryForm').isVisible(), 'Password recovery form did not open.');
+          await page.locator('#adminRecoveryBack').click();
+          assert(await page.locator('#adminLoginForm').isVisible(), 'Admin sign-in form did not restore after recovery view.');
+
+          await page.locator('[data-close-admin]').first().click();
+
+          const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+          mobile.setDefaultTimeout(15000);
+          await mobile.goto(base, { waitUntil: 'networkidle' });
+          assert(await mobile.locator('#navToggle').isVisible(), 'Mobile navigation toggle is not visible.');
+          await mobile.locator('#navToggle').click();
+          assert(await mobile.locator('#primaryNav').evaluate((el) => el.classList.contains('open')), 'Mobile navigation did not open.');
+          const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          assert(overflow <= 2, `Mobile page has horizontal overflow of ${overflow}px.`);
+          assert(await mobile.locator('#videoGrid .video-card').count() >= 1, 'Videos are missing on mobile.');
+          await mobile.close();
+
+          if (errors.length) {
+            console.error(errors.join('\n'));
+            throw new Error('Browser console/page errors were detected.');
+          }
+
+          console.log('CDC isolated browser audit passed.');
+          await browser.close();
+          EOF
+          node audit-browser.mjs
