@@ -1,0 +1,12 @@
+name = "cdc-media"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "cdc-media-production"
+
+[vars]
+NEON_DATA_API_URL = "https://YOUR-ENDPOINT.apirest.REGION.aws.neon.tech/YOUR_DB/rest/v1"
+PUBLIC_BASE_URL = "https://YOUR-MEDIA-WORKER.workers.dev"
+ALLOWED_ORIGINS = "https://YOUR-PRODUCTION-DOMAIN"
