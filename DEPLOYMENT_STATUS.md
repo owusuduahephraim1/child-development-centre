@@ -33,6 +33,22 @@ The corrected newsletter audit functions use `audit_logs.user_id`, and gateway d
 
 Anonymous RLS smoke tests confirm that public content is readable while private enquiry data remains inaccessible.
 
+## Function execution hardening
+
+The tested least-privilege migration `database/12_function_execute_hardening.sql` has been applied to the Neon production branch.
+
+Production verification confirms:
+
+- Public contact, newsletter, and donation-intent RPCs remain executable by the anonymous website role.
+- Administrator management RPCs remain executable by authenticated users where required.
+- `admin_setup_available()` is no longer browser-executable.
+- Receipt/reference helper functions are no longer browser-executable.
+- `record_gateway_verified_donation(...)` is not executable by anonymous or authenticated browser roles.
+- `show_db_tree()` is not executable by browser roles.
+- Default function privileges now revoke automatic `PUBLIC EXECUTE` for future CDC functions in `public` and `app_private`.
+- One active CDC administrator remains.
+- The temporary migration branch was removed after successful production application.
+
 ## Media migration verification
 
 - 14 legacy CDC media objects were copied to `cdc-media-production`.
