@@ -1,0 +1,9 @@
+{
+  "name": "cdc-media-worker",
+  "private": true,
+  "version": "3.0.0",
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/index.js"
+  }
+}
