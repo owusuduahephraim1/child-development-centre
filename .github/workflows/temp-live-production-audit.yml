@@ -141,9 +141,19 @@ jobs:
           assert(await mobile.locator('#navToggle').isVisible(), 'mobile: navigation toggle missing');
           await mobile.locator('#navToggle').click();
           assert(await mobile.locator('#primaryNav').evaluate(el => el.classList.contains('open')), 'mobile: navigation did not open');
+          await mobile.locator('#navToggle').click();
           const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
           assert(overflow <= 2, `mobile: horizontal overflow is ${overflow}px`);
+
+          await mobile.locator('#gallery').scrollIntoViewIfNeeded();
+          await mobile.waitForFunction(() => {
+            const imgs = [...document.querySelectorAll('#galleryGrid img')];
+            return imgs.length >= 1 && imgs.every(img => img.complete && img.naturalWidth > 0);
+          }, { timeout: 30000 });
           assert(await mobile.locator('#galleryGrid .album-card').count() >= 1, 'mobile: gallery cards missing');
+
+          await mobile.locator('#videos').scrollIntoViewIfNeeded();
+          await mobile.waitForFunction(() => document.querySelectorAll('#videoGrid .video-card').length >= 1, { timeout: 30000 });
           assert(await mobile.locator('#videoGrid .video-card').count() >= 1, 'mobile: video cards missing');
           await mobile.screenshot({ path: '/tmp/cdc-live-mobile.png', fullPage: true });
           await mobile.close();
