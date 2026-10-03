@@ -66,7 +66,20 @@ jobs:
         run: wrangler deploy --config wrangler.generated.toml
 
       - name: Verify deployment
+        shell: bash
         run: |
-          echo "CDC Cloudflare media infrastructure provisioned."
-          echo "Bucket: $CDC_BUCKET"
-          echo "Worker: $CDC_WORKER"
+          set -euo pipefail
+          WORKER_URL="https://cdc-media.edusentia-enterprise-neon.workers.dev"
+          for attempt in 1 2 3 4 5; do
+            if response="$(curl --fail --silent --show-error "$WORKER_URL/health")"; then
+              echo "$response"
+              echo "CDC Cloudflare media infrastructure provisioned."
+              echo "Bucket: $CDC_BUCKET"
+              echo "Worker: $CDC_WORKER"
+              echo "Worker URL: $WORKER_URL"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Worker health check failed."
+          exit 1
