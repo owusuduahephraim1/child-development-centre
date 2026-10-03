@@ -28,7 +28,7 @@ jobs:
           SITE_URL: https://owusuduahephraim1.github.io/child-development-centre/
         run: |
           set -euo pipefail
-          cat > /tmp/cdc-live-audit.mjs <<'EOF'
+          cat > cdc-live-audit.mjs <<'EOF'
           import { chromium } from 'playwright';
 
           function assert(condition, message) {
@@ -146,7 +146,7 @@ jobs:
           await browser.close();
           console.log('CDC live production browser audit passed without writing production data.');
           EOF
-          node /tmp/cdc-live-audit.mjs
+          node cdc-live-audit.mjs
 
       - name: Upload audit screenshots
         if: always()
