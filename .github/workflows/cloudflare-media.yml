@@ -1,0 +1,71 @@
+name: Provision CDC Cloudflare Media
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CDC_BUCKET: cdc-media-production
+      CDC_WORKER: cdc-media
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Cloudflare credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@latest
+
+      - name: Verify Cloudflare account
+        run: wrangler whoami
+
+      - name: Create CDC R2 bucket if missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if wrangler r2 bucket list --json | python3 -c "import json,sys; data=json.load(sys.stdin); items=data.get('buckets', data) if isinstance(data,dict) else data; sys.exit(0 if any((x.get('name')=='$CDC_BUCKET') for x in items) else 1)"; then
+            echo "R2 bucket $CDC_BUCKET already exists."
+          else
+            wrangler r2 bucket create "$CDC_BUCKET"
+          fi
+
+      - name: Generate Worker configuration
+        shell: bash
+        run: |
+          cat > worker/wrangler.generated.toml <<EOF
+          name = "$CDC_WORKER"
+          account_id = "$CLOUDFLARE_ACCOUNT_ID"
+          main = "src/index.js"
+          compatibility_date = "2026-10-01"
+
+          [[r2_buckets]]
+          binding = "MEDIA"
+          bucket_name = "$CDC_BUCKET"
+
+          [vars]
+          NEON_DATA_API_URL = "https://ep-calm-dawn-b4t6enjm.apirest.c-6.us-east-2.aws.neon.tech/neondb/rest/v1"
+          ALLOWED_ORIGINS = "https://owusuduahephraim1.github.io"
+          EOF
+
+      - name: Deploy CDC media Worker
+        working-directory: worker
+        run: wrangler deploy --config wrangler.generated.toml
+
+      - name: Verify deployment
+        run: |
+          echo "CDC Cloudflare media infrastructure provisioned."
+          echo "Bucket: $CDC_BUCKET"
+          echo "Worker: $CDC_WORKER"
