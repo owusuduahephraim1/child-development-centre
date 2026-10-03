@@ -36,7 +36,7 @@ jobs:
           CDC_CANONICAL_URL: https://owusuduahephraim1.github.io/child-development-centre/
           CDC_NEON_AUTH_URL: https://ep-calm-dawn-b4t6enjm.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth
           CDC_NEON_DATA_API_URL: https://ep-calm-dawn-b4t6enjm.apirest.c-6.us-east-2.aws.neon.tech/neondb/rest/v1
-          CDC_MEDIA_WORKER_URL: ""
+          CDC_MEDIA_WORKER_URL: https://cdc-media.edusentia-enterprise-neon.workers.dev
           CDC_ORGANISATION_LOGO_URL: ""
           CDC_SCHOOL_LOGO_URL: ""
         run: node scripts/build-pages.mjs
