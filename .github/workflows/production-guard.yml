@@ -1,0 +1,110 @@
+name: CDC v3 Guard
+
+on:
+  push:
+    branches: [cdc-v3-rebuild]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cdc-v3-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify required files
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            index.html
+            assets/runtime-config.js
+            assets/runtime-config.example.js
+            assets/app.v3.0.0-neon-r2.js
+            assets/public-runtime.v3.0.0.js
+            worker/src/index.js
+            worker/wrangler.toml.example
+            docs/ARCHITECTURE.md
+          )
+          for f in "${required[@]}"; do
+            test -s "$f" || { echo "Missing required file: $f"; exit 1; }
+          done
+
+      - name: Validate JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/runtime-config.js
+          node --check assets/public-runtime.v3.0.0.js
+          node --check assets/donation-panel.v2.3.8.js
+          node --check assets/password-visibility.v2.3.2.js
+          node --check worker/src/index.js
+          node --input-type=module --check < assets/app.v3.0.0-neon-r2.js
+          node --input-type=module --check < assets/single-admin-hardening.v2.3.4.js
+          node --input-type=module --check < assets/enhancements.v2.1.0.js
+          node --input-type=module --check < assets/enhancements.v2.2.0.js
+          node --input-type=module --check < assets/appearance.v2.3.9.js
+
+      - name: Validate CDC v3 isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          runtime = Path('assets/runtime-config.js').read_text()
+          index = Path('index.html').read_text()
+          required = ['window.CDC_CONFIG', '3.0.0-rebuild', 'neonAuthUrl', 'neonDataApiUrl', 'videoUploadWorkerUrl']
+          for token in required:
+              if token not in runtime:
+                  raise SystemExit(f'Missing CDC v3 runtime token: {token}')
+          forbidden = [
+              'ep-quiet-star-af3t7s87',
+              'nis-cdc-media-upload.nduah385.workers.dev',
+              'https://nduah385.github.io/nis-childdevelopment/'
+          ]
+          for token in forbidden:
+              if token in runtime or token in index:
+                  raise SystemExit(f'Legacy production dependency found: {token}')
+          if 'NIS Child Development Centre' in index:
+              raise SystemExit('Legacy public brand remains in index.html')
+          print('CDC v3 isolation checks passed.')
+          PY
+
+      - name: Reject secrets from deployable source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          roots = [Path('index.html'), Path('assets'), Path('worker')]
+          patterns = {
+              'postgres connection string': re.compile(r'(?i)postgres(?:ql)?://[^\s"\']+'),
+              'private key': re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
+              'service role key': re.compile(r'(?i)\bSERVICE_ROLE(?:_KEY)?\s*[:=]\s*["\'][^"\']+'),
+              'database password': re.compile(r'(?i)\b(?:PGPASSWORD|DATABASE_PASSWORD)\s*[:=]\s*["\'][^"\']+'),
+          }
+          files=[]
+          for root in roots:
+              files += [root] if root.is_file() else list(root.rglob('*'))
+          violations=[]
+          for path in files:
+              if not path.is_file() or path.suffix.lower() not in {'.html','.js','.css','.json','.toml','.md'}:
+                  continue
+              text=path.read_text(encoding='utf-8',errors='ignore')
+              for label,pat in patterns.items():
+                  if pat.search(text):
+                      violations.append(f'{path}: {label}')
+          if violations:
+              raise SystemExit('\n'.join(violations))
+          print('Deployable source is free of prohibited credential material.')
+          PY
