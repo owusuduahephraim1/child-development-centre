@@ -4,7 +4,7 @@ const $=(id)=>document.getElementById(id), cfg=window.CDC_CONFIG||{};
 let neonClient=null, siteSettings={}, schoolProfile=null, albumTimers=new Map(), albumObservers=[], heroTimer=null, heroSlides=[], currentUser=null, currentAdmin=null, currentModule='overview', queryFailures=[];
 const escapeHTML=(v)=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const text=(id,v)=>{const el=$(id);if(el&&v!==undefined&&v!==null&&String(v).trim()!=='')el.textContent=v};
-const safeUrl=(u,allowMap=false)=>{const raw=String(u||'').trim();if(/^data:image\/(?:jpeg|png|webp|gif);base64,[a-z0-9+/=]+$/i.test(raw)||/^data:application\/pdf;base64,[a-z0-9+/=]+$/i.test(raw))return raw;try{const x=new URL(raw,location.href);if(!['http:','https:'].includes(x.protocol))return'';if(allowMap&&!/^(www\.)?(google\.[a-z.]+|maps\.google\.[a-z.]+)$/i.test(x.hostname))return'';return x.href}catch{return''}};
+const safeUrl=(u,allowMap=false)=>{const raw=String(u||'').trim();if(!raw)return'';if(/^data:image\/(?:jpeg|png|webp|gif);base64,[a-z0-9+/=]+$/i.test(raw)||/^data:application\/pdf;base64,[a-z0-9+/=]+$/i.test(raw))return raw;try{const x=new URL(raw,location.href);if(!['http:','https:'].includes(x.protocol))return'';if(allowMap&&!/^(www\.)?(google\.[a-z.]+|maps\.google\.[a-z.]+)$/i.test(x.hostname))return'';return x.href}catch{return''}};
 const icons=['🎓','🛡️','❤','🌱','🤝','💡','🏡','⚽'];
 function initNeon(){
  if(!cfg.neonAuthUrl||!cfg.neonDataApiUrl||String(cfg.neonAuthUrl).startsWith('__')||String(cfg.neonDataApiUrl).startsWith('__'))return;
