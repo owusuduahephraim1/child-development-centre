@@ -69,6 +69,7 @@ jobs:
                   raise SystemExit(f'Missing dedicated CDC runtime value: {value}')
 
           forbidden = [
+              'window.NIS_CONFIG',
               'ep-quiet-star-af3t7s87',
               'nduah385.github.io/nis-childdevelopment',
               'calm-grass-25059501',
