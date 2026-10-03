@@ -106,6 +106,52 @@ function managedKey(key, prefix) {
 async function handleMediaGet(request, env, pathname) {
   const key = decodeURIComponent(pathname.slice('/media/'.length));
   if (!key || key.includes('..')) return new Response('Not found', { status: 404 });
+
+  const range = request.headers.get('range');
+  if (range) {
+    const meta = await env.MEDIA.head(key);
+    if (!meta) return new Response('Not found', { status: 404 });
+    const match = /^bytes=(\d*)-(\d*)$/i.exec(range.trim());
+    if (!match) {
+      return new Response('Invalid range', {
+        status: 416,
+        headers: { 'content-range': `bytes */${meta.size}`, 'accept-ranges': 'bytes' },
+      });
+    }
+
+    let start;
+    let end;
+    if (match[1] === '' && match[2] !== '') {
+      const suffix = Math.max(1, Number(match[2]));
+      start = Math.max(0, meta.size - suffix);
+      end = meta.size - 1;
+    } else {
+      start = Number(match[1] || 0);
+      end = match[2] === '' ? meta.size - 1 : Number(match[2]);
+    }
+
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || start >= meta.size) {
+      return new Response('Range not satisfiable', {
+        status: 416,
+        headers: { 'content-range': `bytes */${meta.size}`, 'accept-ranges': 'bytes' },
+      });
+    }
+
+    end = Math.min(end, meta.size - 1);
+    const length = end - start + 1;
+    const obj = await env.MEDIA.get(key, { range: { offset: start, length } });
+    if (!obj) return new Response('Not found', { status: 404 });
+    const headers = new Headers();
+    obj.writeHttpMetadata(headers);
+    headers.set('etag', obj.httpEtag);
+    headers.set('cache-control', 'public, max-age=31536000, immutable');
+    headers.set('x-content-type-options', 'nosniff');
+    headers.set('accept-ranges', 'bytes');
+    headers.set('content-range', `bytes ${start}-${end}/${meta.size}`);
+    headers.set('content-length', String(length));
+    return new Response(obj.body, { status: 206, headers });
+  }
+
   const obj = await env.MEDIA.get(key);
   if (!obj) return new Response('Not found', { status: 404 });
   const headers = new Headers();
@@ -113,6 +159,8 @@ async function handleMediaGet(request, env, pathname) {
   headers.set('etag', obj.httpEtag);
   headers.set('cache-control', 'public, max-age=31536000, immutable');
   headers.set('x-content-type-options', 'nosniff');
+  headers.set('accept-ranges', 'bytes');
+  headers.set('content-length', String(obj.size));
   return new Response(obj.body, { headers });
 }
 
