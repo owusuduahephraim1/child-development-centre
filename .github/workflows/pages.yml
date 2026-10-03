@@ -77,6 +77,10 @@ jobs:
               && runtime="$(curl --fail --silent --show-error --location "$RUNTIME_URL")" \
               && health="$(curl --fail --silent --show-error --location "$WORKER_URL/health")"; then
               printf '%s' "$page" | grep -F "Child Development Centre" >/dev/null
+              if printf '%s' "$page" | grep -F 'id="adminOpen"' >/dev/null; then
+                echo "Public administrator entry control is still visible."
+                exit 1
+              fi
               printf '%s' "$page" | grep -F '<link id="canonicalUrl" rel="canonical" href="https://owusuduahephraim1.github.io/child-development-centre/">' >/dev/null
               printf '%s' "$page" | grep -F '<meta id="ogUrl" property="og:url" content="https://owusuduahephraim1.github.io/child-development-centre/">' >/dev/null
               printf '%s' "$page" | grep -F '<meta id="ogImage" property="og:image" content="https://cdc-media.edusentia-enterprise-neon.workers.dev/media/images/settings/seo_share_image/2026/08/b3da4073-2e0e-437e-ae39-f3d35bbdfd40.webp">' >/dev/null
