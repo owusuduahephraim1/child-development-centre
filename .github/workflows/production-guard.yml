@@ -63,6 +63,10 @@ jobs:
               'ep-calm-dawn-b4t6enjm.neonauth.c-6.us-east-2.aws.neon.tech',
               'ep-calm-dawn-b4t6enjm.apirest.c-6.us-east-2.aws.neon.tech',
               'owusuduahephraim1.github.io/child-development-centre/',
+              'seo_share_image',
+              'CDC_SEO_SHARE_IMAGE_URL',
+              'property="og:image"',
+              'name="twitter:image"',
           ]
           for value in expected:
               if value not in active:
