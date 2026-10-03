@@ -7,4 +7,3 @@ window.CDC_CONFIG = {
   bootstrapOrganisationLogo: "",
   bootstrapSchoolLogo: ""
 };
-window.NIS_CONFIG = window.CDC_CONFIG;
