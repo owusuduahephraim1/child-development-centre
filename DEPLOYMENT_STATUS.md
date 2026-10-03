@@ -11,6 +11,7 @@
 - Neon Auth: enabled
 - Neon Data API: enabled
 - GitHub Pages origin is trusted by Neon Auth.
+- GitHub Pages deployment: successful
 
 This project is isolated from all Edusentia repositories and Neon projects.
 
@@ -25,6 +26,14 @@ The production database currently contains:
 
 The corrected newsletter audit functions use `audit_logs.user_id`, and gateway donation verification uses `next_receipt_reference()`.
 
-## Remaining deployment action
+## Deployment verification
 
-GitHub must create the repository's Pages site once. The deployment workflow is already configured for GitHub Actions and has `pages: write` / `id-token: write` permissions. Once the repository Pages site is enabled, the existing workflow can deploy the site.
+GitHub Pages is enabled with **GitHub Actions** as the source. The deployment workflow completed successfully after Pages activation.
+
+Live site:
+
+`https://owusuduahephraim1.github.io/child-development-centre/`
+
+## Remaining infrastructure work
+
+The dedicated Cloudflare R2 media layer and Worker still need to be provisioned and connected. Existing legacy media URLs remain intentionally unchanged until the corresponding binary objects are copied and verified in the new CDC R2 bucket.
