@@ -47,7 +47,12 @@ jobs:
               if (msg.type() === 'error') errors.push('console: ' + msg.text());
             });
             page.on('requestfailed', (request) => {
-              failedRequests.push(request.url() + ' :: ' + (request.failure()?.errorText || 'request failed'));
+              const url = request.url();
+              const errorText = request.failure()?.errorText || 'request failed';
+              const benignVideoAbort =
+                errorText === 'net::ERR_ABORTED'
+                && url.startsWith('https://cdc-media.edusentia-enterprise-neon.workers.dev/media/videos/');
+              if (!benignVideoAbort) failedRequests.push(url + ' :: ' + errorText);
             });
 
             await page.goto(base, { waitUntil: 'networkidle', timeout: 60000 });
