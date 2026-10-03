@@ -82,6 +82,11 @@ jobs:
               if value in active:
                   raise SystemExit(f'Foreign or legacy project endpoint leaked into CDC runtime: {value}')
 
+          runtime_pos = index.find('assets/runtime-config.js')
+          app_pos = index.find('assets/app.v3.0.0-neon-r2.js')
+          if runtime_pos < 0 or app_pos < 0 or runtime_pos > app_pos:
+              raise SystemExit('CDC runtime configuration must load before the application module.')
+
           print('CDC v3 runtime is isolated from old CDC and Edusentia resources.')
           PY
 
