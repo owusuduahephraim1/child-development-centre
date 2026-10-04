@@ -1,0 +1,54 @@
+name: Temporary CDC Contact UX Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/temp-contact-ux-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contact-ux-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@latest
+          npx playwright install --with-deps chromium
+      - name: Verify contact confirmation
+        env:
+          SITE_URL: https://owusuduahephraim1.github.io/child-development-centre/
+        run: |
+          cat > contact-audit.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage({viewport:{width:390,height:844}});
+          const errors=[];
+          page.on('pageerror',e=>errors.push('pageerror: '+e.message));
+          page.on('console',m=>{if(m.type()==='error')errors.push('console: '+m.text())});
+          await page.route('**/rest/v1/rpc/submit_contact_message_v2', async route => {
+            await route.fulfill({
+              status:200,
+              contentType:'application/json',
+              body:JSON.stringify({ok:true,message:'Thank you. Your enquiry has been received. Reference: CDC-CONTACT-UX-TEST'})
+            });
+          });
+          const response=await page.goto(process.env.SITE_URL,{waitUntil:'networkidle',timeout:60000});
+          if(!response?.ok()) throw new Error('Public site failed to load');
+          await page.locator('#contactForm input[name="name"]').fill('UX Test');
+          await page.locator('#contactForm input[name="email"]').fill('ux-test@example.invalid');
+          await page.locator('#contactForm textarea[name="message"]').fill('Testing contact confirmation only.');
+          await page.locator('#contactForm button[type="submit"]').click();
+          const status=page.locator('#contactStatus');
+          await page.waitForFunction(()=>document.getElementById('contactStatus')?.textContent?.includes('CDC-CONTACT-UX-TEST'),null,{timeout:10000});
+          if(!(await status.evaluate(el=>el.classList.contains('is-success')))) throw new Error('Contact confirmation is not styled as success');
+          await page.waitForFunction(()=>document.getElementById('contactStatus')?.textContent==='',null,{timeout:7000});
+          if((await status.textContent())!=='') throw new Error('Contact confirmation did not auto-clear');
+          if(errors.length) throw new Error('Browser errors:\n'+errors.join('\n'));
+          console.log('CDC contact UX audit passed without writing an enquiry record.');
+          await browser.close();
+          EOF
+          node contact-audit.mjs
